@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio de Fourier | Verio</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --cream-light: #FDF8F3; --cream: #F5EDE4; --cream-dark: #E8DDD0;
+            --sage-light: #C5D4C0; --sage: #9BB08F; --sage-dark: #7A9A6D;
+            --terracotta-light: #D4847C; --terracotta: #B85C50; --terracotta-dark: #8B3A30;
+            --wood-light: #D4B896; --wood: #A67B5B; --wood-dark: #6B4423;
+            --text-primary: #2C2420; --text-secondary: #5C544D; --border: #D4C8BC;
+            --shadow-sm: 0 1px 3px rgba(44,36,32,0.08);
+            --shadow-md: 0 4px 12px rgba(44,36,32,0.12);
+            --radius-sm: 6px; --radius-md: 10px;
+        }
+
+        @keyframes panelSlideIn {
+            from { opacity: 0; transform: translateX(-16px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes headerFadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes chartBorn {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes slideOutDown {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to   { opacity: 0; transform: translateY(14px) scale(0.985); }
+        }
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(-14px) scale(0.985); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes paramPulse {
+            0%   { box-shadow: var(--shadow-md); border-color: var(--border); }
+            35%  { box-shadow: 0 0 0 3px var(--terracotta-light), var(--shadow-md); border-color: var(--terracotta-light); }
+            100% { box-shadow: var(--shadow-md); border-color: var(--border); }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, var(--cream-light) 0%, var(--cream) 100%);
+            color: var(--text-primary);
+            height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--terracotta) 0%, var(--terracotta-dark) 100%);
+            padding: 0 18px; height: 58px; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--shadow-md); z-index: 10; gap: 12px;
+            animation: headerFadeIn 0.4s ease both;
+        }
+        .logo-text h1 { color: var(--cream-light); font-size: 16px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+        .logo-text span { color: var(--cream-light); font-size: 10px; opacity: 0.8; display: block; }
+        .header-actions { display: flex; gap: 7px; align-items: center; flex-shrink: 0; }
+        .btn-header {
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white;
+            padding: 6px 11px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; transition: background 0.2s, color 0.2s, transform 0.12s; white-space: nowrap;
+        }
+        .btn-header:hover { background: white; color: var(--terracotta-dark); }
+        .btn-header:active { transform: scale(0.95); }
+        .btn-header.active-audio { background: var(--sage); border-color: var(--sage-dark); }
+
+        .app-body { display: flex; flex: 1; height: calc(100vh - 58px); overflow: hidden; }
+
+        .control-panel {
+            width: 355px; min-width: 355px; background: var(--cream-light); border-right: 1px solid var(--border);
+            padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 11px; z-index: 5;
+        }
+        .control-panel::-webkit-scrollbar { width: 5px; }
+        .control-panel::-webkit-scrollbar-track { background: transparent; }
+        .control-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .panel-section {
+            background: white; border-radius: var(--radius-md); padding: 13px;
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm); opacity: 0;
+        }
+        .panel-section:nth-child(1) { animation: panelSlideIn 0.35s ease 0.06s both; }
+        .panel-section:nth-child(2) { animation: panelSlideIn 0.35s ease 0.13s both; }
+        .panel-section:nth-child(3) { animation: panelSlideIn 0.35s ease 0.20s both; }
+        .panel-section:nth-child(4) { animation: panelSlideIn 0.35s ease 0.27s both; }
+        .panel-section:nth-child(5) { animation: panelSlideIn 0.35s ease 0.34s both; }
+        .panel-section:nth-child(6) { animation: panelSlideIn 0.35s ease 0.41s both; }
+        .panel-section:nth-child(7) { animation: panelSlideIn 0.35s ease 0.48s both; }
+
+        .panel-header {
+            display: flex; align-items: center; gap: 7px; margin-bottom: 11px; padding-bottom: 7px;
+            border-bottom: 1px solid var(--cream-dark); color: var(--terracotta); font-size: 13px; font-weight: 600;
+            cursor: pointer; user-select: none; transition: color 0.15s;
+        }
+        .panel-header:hover { color: var(--terracotta-dark); }
+        .panel-header::after { content: '\25BE'; margin-left: auto; font-size: 11px; display: inline-block; transition: transform 0.28s ease; }
+        .panel-header.collapsed::after { transform: rotate(-90deg); }
+
+        .collapsible-body { overflow: hidden; max-height: 800px; opacity: 1; transition: max-height 0.34s ease, opacity 0.26s ease; }
+        .collapsible-body.collapsed { max-height: 0; opacity: 0; pointer-events: none; }
+
+        .control-group { margin-bottom: 11px; }
+        .control-group:last-child { margin-bottom: 0; }
+        .control-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .control-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+
+        .badge {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+            color: var(--terracotta-dark); background: var(--cream);
+            padding: 2px 7px; border-radius: 12px; min-width: 38px; text-align: center;
+            cursor: text; transition: background 0.15s, box-shadow 0.15s; position: relative;
+        }
+        .badge:hover { background: var(--cream-dark); box-shadow: 0 0 0 2px var(--terracotta-light); }
+        .badge-editing { display: none; }
+        .badge.is-editing .badge-display { display: none; }
+        .badge.is-editing .badge-editing { display: inline-block; }
+        .badge-editing input {
+            width: 52px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+            color: var(--terracotta-dark); background: white; border: 1px solid var(--terracotta-light);
+            border-radius: 8px; padding: 1px 5px; text-align: center; outline: none;
+        }
+
+        select, input[type="range"] { width: 100%; outline: none; }
+        select {
+            padding: 7px 9px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--cream-light); font-family: inherit; font-size: 12px; color: var(--text-primary);
+            cursor: pointer; transition: border-color 0.15s;
+        }
+        select:focus { border-color: var(--terracotta-light); }
+        input[type="range"] { height: 5px; background: var(--border); border-radius: 3px; -webkit-appearance: none; cursor: pointer; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 15px; height: 15px; background: var(--terracotta);
+            border-radius: 50%; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform 0.15s, background 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); background: var(--terracotta-dark); }
+
+        .formula-box {
+            background: var(--cream-dark); padding: 8px 10px; border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--terracotta-dark);
+            text-align: center; margin-top: 8px; border: 1px dashed var(--wood); line-height: 1.5;
+        }
+
+        .toggle-box {
+            display: flex; align-items: center; justify-content: space-between; background: var(--cream-light);
+            padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            margin-bottom: 6px; cursor: pointer; transition: background 0.15s;
+        }
+        .toggle-box:last-child { margin-bottom: 0; }
+        .toggle-box:hover { background: var(--cream); }
+        .switch { position: relative; display: inline-block; width: 33px; height: 18px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .sw-track { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .3s; border-radius: 18px; }
+        .sw-track:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .sw-track { background-color: var(--sage); }
+        input:checked + .sw-track:before { transform: translateX(15px); }
+
+        .filter-hint { font-size: 10px; color: var(--text-secondary); font-style: italic; margin-top: 5px; line-height: 1.4; }
+
+        .preset-row { display: flex; gap: 6px; margin-bottom: 7px; }
+        .preset-row:last-child { margin-bottom: 0; }
+        .preset-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: var(--terracotta-dark); background: var(--cream); border-radius: 6px; padding: 4px 8px; min-width: 26px; text-align: center; }
+        .preset-label.filled { background: var(--terracotta); color: white; }
+        .btn-sm {
+            flex: 1; padding: 5px 0; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
+            background: var(--cream-light); color: var(--text-secondary);
+        }
+        .btn-sm:hover { background: var(--cream-dark); color: var(--text-primary); }
+        .btn-sm:active { transform: scale(0.96); }
+        .btn-sm.btn-sage { background: var(--sage); color: white; border-color: var(--sage-dark); }
+        .btn-sm.btn-sage:hover { background: var(--sage-dark); }
+
+        .build-controls { display: flex; gap: 6px; margin-bottom: 10px; }
+        .btn-build {
+            flex: 1; padding: 7px 0; border-radius: var(--radius-sm); border: none;
+            font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.1s;
+        }
+        .btn-build:active { transform: scale(0.95); }
+        .btn-build.start { background: var(--terracotta); color: white; }
+        .btn-build.start:hover { background: var(--terracotta-dark); }
+        .btn-build.stop { background: var(--sage); color: white; display: none; }
+        .btn-build.stop:hover { background: var(--sage-dark); }
+        .build-progress { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+        .build-step-display { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--terracotta-dark); font-weight: 600; }
+
+        .ab-row { display: flex; gap: 6px; align-items: center; }
+
+        .phase-list { display: flex; flex-direction: column; gap: 7px; max-height: 280px; overflow-y: auto; padding-right: 2px; margin-top: 10px; }
+        .phase-list::-webkit-scrollbar { width: 4px; }
+        .phase-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .phase-item { background: var(--cream-light); border-radius: var(--radius-sm); padding: 7px 9px; border: 1px solid var(--border); }
+        .phase-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .phase-item-name { font-size: 10px; font-weight: 600; color: var(--text-secondary); }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; background: white; overflow: hidden; min-width: 0; animation: chartBorn 0.45s ease 0.28s both; }
+        .tabs-bar { background: var(--cream-light); padding: 9px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: center; }
+        .tabs-container { display: flex; background: var(--cream-dark); padding: 3px; border-radius: var(--radius-md); gap: 3px; }
+        .tab-btn {
+            padding: 6px 15px; border: none; background: transparent; color: var(--text-secondary);
+            font-size: 12px; font-weight: 600; border-radius: var(--radius-sm); cursor: pointer;
+            display: flex; align-items: center; gap: 6px; transition: background 0.2s, color 0.2s, box-shadow 0.2s; white-space: nowrap;
+        }
+        .tab-btn.active { background: white; color: var(--terracotta-dark); box-shadow: var(--shadow-sm); }
+
+        .chart-wrapper {
+            flex: 1; position: relative; margin: 14px;
+            background: white; border-radius: var(--radius-md);
+            border: 1px solid var(--border); box-shadow: var(--shadow-md); min-height: 0;
+        }
+        .chart-wrapper.out { animation: slideOutDown 0.24s ease forwards; }
+        .chart-wrapper.in  { animation: slideInUp  0.28s ease forwards; }
+        .chart-wrapper.param-pulse { animation: paramPulse 0.65s ease; }
+
+        #chartContainer { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; }
+        .axis-note {
+            position: absolute; bottom: 14px; right: 80px; font-size: 9px; font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary); opacity: 0.7; pointer-events: none;
+        }
+
+        .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="logo-text">
+        <h1>Laboratorio de Fourier</h1>
+        <span>Aplicaciones Didácticas · Verio</span>
+    </div>
+    <div class="header-actions">
+        <button class="btn-header" id="btnAudio" onclick="toggleAudio()">
+            <svg class="icon" viewBox="0 0 24 24" id="iconAudio"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span id="lblAudio">Reproducir</span>
+        </button>
+        <button class="btn-header" onclick="exportCSV()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+        </button>
+        <button class="btn-header" onclick="exportPNG()">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            PNG
+        </button>
+        <button class="btn-header" onclick="resetApp()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Reiniciar
+        </button>
+    </div>
+</header>
+
+<div class="app-body">
+    <aside class="control-panel">
+
+        <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('bodyPrincipal',this)">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
+                Parámetros Generales
+            </div>
+            <div class="collapsible-body" id="bodyPrincipal">
+                <div class="control-group">
+                    <div class="control-label-row"><span class="control-label">Función - Forma de Onda</span></div>
+                    <select id="selType">
+                        <option value="square">Cuadrada</option>
+                        <option value="triangle">Triangular</option>
+                        <option value="sawtooth">Diente de Sierra</option>
+                    </select>
+                    <div id="formulaBox" class="formula-box">S (1/n) * sin(n*w*t + phi_n) [Impares]</div>
+                </div>
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Fundamental (Hz)</span>
+                        <span class="badge" id="lblFreq">
+                            <span class="badge-display">100</span>
+                            <span class="badge-editing"><input type="number" min="10" max="300" step="5" value="100"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngFreq" min="10" max="300" step="5" value="100">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('bodyNiveles',this)">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Niveles y Componentes
+            </div>
+            <div class="collapsible-body" id="bodyNiveles">
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Cant. de Componentes (N)</span>
+                        <span class="badge" id="lblComps">
+                            <span class="badge-display">5</span>
+                            <span class="badge-editing"><input type="number" min="1" max="25" step="1" value="5"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngComps" min="1" max="25" step="1" value="5">
+                </div>
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Nivel de la Fundamental (Norm)</span>
+                        <span class="badge" id="lblGainF">
+                            <span class="badge-display">1.0</span>
+                            <span class="badge-editing"><input type="number" min="0" max="2" step="0.1" value="1.0"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngGainF" min="0" max="2" step="0.1" value="1">
+                </div>
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Nivel de los Parciales/Armonicos (Norm)</span>
+                        <span class="badge" id="lblGainH">
+                            <span class="badge-display">1.0</span>
+                            <span class="badge-editing"><input type="number" min="0" max="2" step="0.1" value="1.0"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngGainH" min="0" max="2" step="0.1" value="1">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('bodyFiltro',this)">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M2 8h20M5 8v8M8 5v14M19 8v8M16 5v14M11 8v8"/></svg>
+                Modulo Espectral - Filtros (LPF/HPF)
+            </div>
+            <div class="collapsible-body" id="bodyFiltro">
+                <div class="control-group">
+                    <div class="control-label-row"><span class="control-label">Tipo de Filtro</span></div>
+                    <select id="selFilter">
+                        <option value="none">Sin Filtro</option>
+                        <option value="lpf">Paso Bajo (LPF)</option>
+                        <option value="hpf">Paso Alto (HPF)</option>
+                    </select>
+                </div>
+                <div class="control-group" id="filterCutoffGroup" style="display:none;">
+                    <div class="control-label-row">
+                        <span class="control-label">Frecuencia de Corte (Hz)</span>
+                        <span class="badge" id="lblFilterFreq">
+                            <span class="badge-display">500</span>
+                            <span class="badge-editing"><input type="number" min="10" max="3000" step="10" value="500"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngFilterFreq" min="10" max="3000" step="10" value="500">
+                    <div class="filter-hint">Butterworth 1er orden - menos 6 dB/oct</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('bodyViz',this)">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                Visualizacion
+            </div>
+            <div class="collapsible-body" id="bodyViz">
+                <div class="control-group" style="padding-bottom:9px; border-bottom:1px dashed var(--border); margin-bottom:9px;">
+                    <div class="control-label-row">
+                        <span class="control-label">Ciclos Visibles (Tiempo)</span>
+                        <span class="badge" id="lblCycles">
+                            <span class="badge-display">2</span>
+                            <span class="badge-editing"><input type="number" min="1" max="10" step="1" value="2"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngCycles" min="1" max="10" step="1" value="2">
+                </div>
+                <label class="toggle-box">
+                    <span class="control-label" style="color:var(--text-primary)">Resultante de la Superposición</span>
+                    <div class="switch"><input type="checkbox" id="chkResult" checked><span class="sw-track"></span></div>
+                </label>
+                <label class="toggle-box">
+                    <span class="control-label" style="color:var(--text-primary)">Parciales/Armonicos</span>
+                    <div class="switch"><input type="checkbox" id="chkComps" checked><span class="sw-track"></span></div>
+                </label>
+                <label class="toggle-box">
+                    <span class="control-label" style="color:var(--text-primary)">Fenomeno de Gibbs</span>
+                    <div class="switch"><input type="checkbox" id="chkGibbs" checked><span class="sw-track"></span></div>
+                </label>
+                <label class="toggle-box" style="margin-bottom:9px;">
+                    <span class="control-label" style="color:var(--text-primary)">Espectro: Eje Log (Octavas)</span>
+                    <div class="switch"><input type="checkbox" id="chkLog"><span class="sw-track"></span></div>
+                </label>
+                <div style="border-top:1px dashed var(--border); padding-top:9px;">
+                    <div class="control-label" style="margin-bottom:7px;">Comparación A/B (Dominio del Tiempo)</div>
+                    <div class="ab-row">
+                        <button class="btn-sm" onclick="saveSnapshotA()" style="flex:2;">Guardar A</button>
+                        <button class="btn-sm" id="btnClearA" onclick="clearSnapshotA()" style="flex:1; display:none;">Borrar</button>
+                    </div>
+                    <label class="toggle-box" style="margin-top:7px; margin-bottom:0;" id="toggleARow" style="display:none;">
+                        <span class="control-label" style="color:var(--text-primary)">Mostrar curva A</span>
+                        <div class="switch"><input type="checkbox" id="chkShowA"><span class="sw-track"></span></div>
+                    </label>
+                    <div class="filter-hint" id="hintA">Guardá el estado actual como A, luego modificá parametros y compara en la vista de Tiempo.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('bodyPresets',this)">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Presets
+            </div>
+            <div class="collapsible-body collapsed" id="bodyPresets">
+                <div class="filter-hint" style="margin-bottom:10px;">Guarda y recupera configuraciones completas. Incluye tipo, frecuencia, niveles, filtro y fases.</div>
+                <div id="presetRows"></div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('bodyConstruccion',this)">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Construccion Paso a Paso
+            </div>
+            <div class="collapsible-body collapsed" id="bodyConstruccion">
+                <div class="filter-hint" style="margin-bottom:10px;">Agrega parciales/armonicos uno a uno para observar la resultante de la Superposición.</div>
+                <div class="build-controls">
+                    <button class="btn-build start" id="btnBuildStart" onclick="startBuild()">Construir</button>
+                    <button class="btn-build stop"  id="btnBuildStop"  onclick="stopBuild()">Detener</button>
+                </div>
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Velocidad (ms por paso)</span>
+                        <span class="badge" id="lblBuildSpeed">
+                            <span class="badge-display">500</span>
+                            <span class="badge-editing"><input type="number" min="100" max="2000" step="100" value="500"></span>
+                        </span>
+                    </div>
+                    <input type="range" id="rngBuildSpeed" min="100" max="2000" step="100" value="500">
+                </div>
+                <div class="build-progress">
+                    <span class="control-label">Armonico activo:</span>
+                    <span class="build-step-display" id="buildStepDisplay">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-header collapsed" id="phaseHeader" onclick="toggleSection('phaseBody',this); onPhaseSectionToggle()">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                Relación de Fase por Parcial/Armónico
+            </div>
+            <div class="collapsible-body collapsed" id="phaseBody">
+                <div class="filter-hint" style="margin-top:4px;">Desfasaje (Phi) de 0 a 360 grados por componente.</div>
+                <div class="phase-list" id="phaseList"></div>
+            </div>
+        </div>
+
+    </aside>
+
+    <main class="main-content">
+        <div class="tabs-bar">
+            <div class="tabs-container">
+                <button class="tab-btn active" data-view="time">
+                    <svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Tiempo
+                </button>
+                <button class="tab-btn" data-view="freq">
+                    <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Espectro
+                </button>
+                <button class="tab-btn" data-view="lissajous">
+                    <svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="5"/><ellipse cx="12" cy="12" rx="5" ry="10"/></svg>
+                    Lissajous
+                </button>
+                <button class="tab-btn" data-view="fase">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 18 9 6l4 8 3-4 5 8"/></svg>
+                    Fase
+                </button>
+            </div>
+        </div>
+        <div class="chart-wrapper" id="chartWrapper">
+            <div id="chartContainer"></div>
+            <div class="axis-note" id="axisNote">eje dcho. = conversion lineal a dBFS (escala Norm compartida)</div>
+        </div>
+    </main>
+</div>
+
+<script>
+    var theme = {
+        terracotta: '#B85C50', terracottaDark: '#8B3A30',
+        sage: '#9BB08F', sageDark: '#7A9A6D',
+        wood: '#A67B5B', woodDark: '#6B4423',
+        creamDark: '#E8DDD0', border: '#D4C8BC',
+        textMuted: '#8A817A', textPrimary: '#2C2420'
+    };
+
+    var palette = [theme.sage, theme.wood, '#D4847C', '#4A7EBB', '#98B954', '#7D60A0', '#7A9A6D', theme.woodDark, '#C48E3A', '#6699AA'];
+
+    var formulas = {
+        square:   'S (1/n) * sin(n*w*t + phi_n)  [Impares]',
+        triangle: 'S (-1)^k / n^2 * sin(n*w*t + phi_n)  [Impares]',
+        sawtooth: 'S (-1)^(n+1) / n * sin(n*w*t + phi_n)  [Todos]'
+    };
+
+    var state = {
+        freq: 100, comps: 5, gainF: 1.0, gainH: 1.0,
+        type: 'square', cycles: 2,
+        showResult: true, showComps: true, showGibbs: true,
+        view: 'time', filterType: 'none', filterFreq: 500,
+        logScale: false, phases: new Array(30).fill(0),
+        presets: [null, null, null],
+        snapshotA: null, showA: false
+    };
+
+    var chart = null;
+    var audioCtx = null;
+    var audioSource = null;
+    var playing = false;
+    var pulseTimer = null;
+    var buildTimer = null;
+    var buildStep = 0;
+    var buildSpeed = 500;
+    var activeComps = 5;
+
+    var ui = {
+        rngFreq: document.getElementById('rngFreq'), lblFreq: document.getElementById('lblFreq'),
+        rngComps: document.getElementById('rngComps'), lblComps: document.getElementById('lblComps'),
+        rngGainF: document.getElementById('rngGainF'), lblGainF: document.getElementById('lblGainF'),
+        rngGainH: document.getElementById('rngGainH'), lblGainH: document.getElementById('lblGainH'),
+        rngCycles: document.getElementById('rngCycles'), lblCycles: document.getElementById('lblCycles'),
+        selType: document.getElementById('selType'), formBox: document.getElementById('formulaBox'),
+        chkResult: document.getElementById('chkResult'), chkComps: document.getElementById('chkComps'),
+        chkGibbs: document.getElementById('chkGibbs'), chkLog: document.getElementById('chkLog'),
+        selFilter: document.getElementById('selFilter'),
+        rngFilterFreq: document.getElementById('rngFilterFreq'), lblFilterFreq: document.getElementById('lblFilterFreq'),
+        filterGroup: document.getElementById('filterCutoffGroup'),
+        tabs: document.querySelectorAll('.tab-btn'),
+        phaseList: document.getElementById('phaseList'),
+        btnAudio: document.getElementById('btnAudio'), lblAudio: document.getElementById('lblAudio'),
+        iconAudio: document.getElementById('iconAudio'), axisNote: document.getElementById('axisNote'),
+        chartWrapper: document.getElementById('chartWrapper'),
+        chkShowA: document.getElementById('chkShowA'),
+        btnClearA: document.getElementById('btnClearA'), toggleARow: document.getElementById('toggleARow'),
+        hintA: document.getElementById('hintA'),
+        btnBuildStart: document.getElementById('btnBuildStart'), btnBuildStop: document.getElementById('btnBuildStop'),
+        rngBuildSpeed: document.getElementById('rngBuildSpeed'), lblBuildSpeed: document.getElementById('lblBuildSpeed'),
+        buildStepDisplay: document.getElementById('buildStepDisplay'),
+        presetRows: document.getElementById('presetRows')
+    };
+
+    function toggleSection(bodyId, headerEl) {
+        var body = document.getElementById(bodyId);
+        var closing = !body.classList.contains('collapsed');
+        body.classList.toggle('collapsed', closing);
+        headerEl.classList.toggle('collapsed', closing);
+    }
+
+    function onPhaseSectionToggle() {
+        if (!document.getElementById('phaseBody').classList.contains('collapsed')) buildPhaseList();
+    }
+
+    function makeBadgeEditable(badgeEl, rangeEl, stateKey, isFloat, onChange) {
+        var display = badgeEl.querySelector('.badge-display');
+        var wrapper = badgeEl.querySelector('.badge-editing');
+        var input = wrapper ? wrapper.querySelector('input') : null;
+        if (!input) return;
+
+        badgeEl.addEventListener('click', function() {
+            if (badgeEl.classList.contains('is-editing')) return;
+            badgeEl.classList.add('is-editing');
+            input.value = state[stateKey];
+            input.focus();
+            input.select();
+        });
+
+        function commit() {
+            var raw = isFloat ? parseFloat(input.value) : parseInt(input.value);
+            var mn = parseFloat(input.min), mx = parseFloat(input.max);
+            if (isNaN(raw)) raw = state[stateKey];
+            raw = Math.min(mx, Math.max(mn, raw));
+            if (isFloat) raw = Math.round(raw / parseFloat(input.step)) * parseFloat(input.step);
+            state[stateKey] = isFloat ? parseFloat(raw.toFixed(2)) : raw;
+            display.textContent = isFloat ? state[stateKey].toFixed(1) : state[stateKey];
+            rangeEl.value = state[stateKey];
+            badgeEl.classList.remove('is-editing');
+            activeComps = state.comps;
+            if (onChange) onChange();
+        }
+
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { commit(); e.preventDefault(); }
+            if (e.key === 'Escape') { badgeEl.classList.remove('is-editing'); }
+        });
+    }
+
+    function pulseChart() {
+        var w = ui.chartWrapper;
+        if (pulseTimer) clearTimeout(pulseTimer);
+        w.classList.remove('param-pulse');
+        void w.offsetWidth;
+        w.classList.add('param-pulse');
+        pulseTimer = setTimeout(function() { w.classList.remove('param-pulse'); }, 700);
+    }
+
+    function filterGain(fHz) {
+        if (state.filterType === 'none') return 1;
+        var r = fHz / state.filterFreq;
+        if (state.filterType === 'lpf') return 1 / Math.sqrt(1 + r * r);
+        return r / Math.sqrt(1 + r * r);
+    }
+
+    function fmtDB(v) {
+        if (Math.abs(v) < 0.0001) return '-inf dB';
+        return (20 * Math.log10(Math.abs(v))).toFixed(1) + ' dB';
+    }
+
+    function axisLabelCfg() { return { color: theme.textMuted, fontFamily: 'JetBrains Mono', fontSize: 10 }; }
+    function axisLineCfg()  { return { lineStyle: { color: theme.border } }; }
+
+    function iterarArmonicos(callback, nComps) {
+        var limit = (nComps !== undefined) ? nComps : activeComps;
+        var nArm = 1, idx = 0;
+        while (idx < limit) {
+            var ao = 0, ok = false;
+            if (state.type === 'square' && nArm % 2 !== 0) { ao = 1 / nArm; ok = true; }
+            else if (state.type === 'triangle' && nArm % 2 !== 0) { ao = (((nArm - 1) / 2) % 2 === 0 ? 1 : -1) / (nArm * nArm); ok = true; }
+            else if (state.type === 'sawtooth') { ao = ((nArm + 1) % 2 === 0 ? 1 : -1) / nArm; ok = true; }
+            if (ok) { callback(idx, nArm, ao); idx++; }
+            nArm++;
+        }
+    }
+
+    function procesarDatos() {
+        var N = 400;
+        var dur = state.cycles / state.freq;
+        var timeArr = [], series = [], freqData = [];
+        var sumatoria = new Float64Array(N);
+        var fundamental = new Float64Array(N);
+        var maxAmp = 0, maxFreq = 0;
+
+        for (var i = 0; i < N; i++) timeArr.push(i * dur / N);
+
+        iterarArmonicos(function(idx, nArm, ampOrig) {
+            var gain = idx === 0 ? state.gainF : state.gainH;
+            var fHz  = nArm * state.freq;
+            var amp  = ampOrig * gain * filterGain(fHz);
+            var phi  = (state.phases[idx] || 0) * Math.PI / 180;
+            var color = palette[idx % palette.length];
+            var onda = [];
+
+            freqData.push({ value: [fHz, Math.abs(amp)], itemStyle: { color: color } });
+            if (Math.abs(amp) > maxAmp) maxAmp = Math.abs(amp);
+            if (fHz > maxFreq) maxFreq = fHz;
+
+            for (var j = 0; j < N; j++) {
+                var v = amp * Math.sin(2 * Math.PI * fHz * timeArr[j] + phi);
+                onda.push(v);
+                sumatoria[j] += v;
+                if (idx === 0) fundamental[j] = Math.sin(2 * Math.PI * state.freq * timeArr[j]);
+            }
+
+            if (state.showComps) {
+                series.push({
+                    id: 'arm_' + idx, name: 'n=' + nArm + ' (' + fHz + 'Hz)',
+                    type: 'line', data: onda, showSymbol: false,
+                    lineStyle: { width: 1.5, type: 'dashed', color: color, opacity: 0.55 },
+                    animation: false
+                });
+            }
+        });
+
+        if (state.showResult) {
+            series.push({
+                id: 'resultante', name: 'Resultante',
+                type: 'line', data: Array.from(sumatoria), showSymbol: false,
+                lineStyle: { width: 3.5, color: theme.terracottaDark },
+                z: 10, animation: false
+            });
+        }
+
+        if (state.snapshotA && state.showA) {
+            series.push({
+                id: 'snapshotA', name: 'Curva A',
+                type: 'line', data: state.snapshotA.data, showSymbol: false,
+                lineStyle: { width: 2, color: '#888', type: 'dashed', opacity: 0.6 },
+                z: 9, animation: false
+            });
+        }
+
+        if (series.length === 0) series.push({ id: 'dummy', type: 'line', data: [], animation: false });
+
+        return {
+            timeMs: timeArr.map(function(t) { return (t * 1000).toFixed(2); }),
+            series: series, freqData: freqData, sumatoria: sumatoria, fundamental: fundamental,
+            maxFreq: maxFreq, maxAmp: maxAmp
+        };
+    }
+
+    function detectarGibbs(sumatoria) {
+        var positivos = Array.from(sumatoria).filter(function(v) { return v > 0; });
+        if (!positivos.length) return [];
+        positivos.sort(function(a, b) { return a - b; });
+        var mediana = positivos[Math.floor(positivos.length * 0.6)];
+        var umbral = mediana * 1.015;
+        var picos = [];
+        for (var i = 2; i < sumatoria.length - 2; i++) {
+            var v = sumatoria[i];
+            if (v > sumatoria[i-1] && v > sumatoria[i+1] && v > sumatoria[i-2] && v > sumatoria[i+2] && v > umbral) {
+                picos.push({ idx: i, val: v, pct: (v - mediana) / mediana * 100 });
+            }
+        }
+        return picos.sort(function(a, b) { return b.val - a.val; }).slice(0, 3);
+    }
+
+    function buildTimeOption(d) {
+        var limY = (state.type === 'triangle' ? 1.5 : 2.5) * Math.max(state.gainF, state.gainH, 1);
+        var markPts = [];
+
+        if (state.showGibbs && state.showResult && (state.type === 'square' || state.type === 'sawtooth')) {
+            detectarGibbs(d.sumatoria).forEach(function(p) {
+                markPts.push({
+                    coord: [d.timeMs[p.idx], d.sumatoria[p.idx]],
+                    symbol: 'pin', symbolSize: 38,
+                    label: { show: true, formatter: '+' + p.pct.toFixed(1) + '%', fontSize: 9, fontFamily: 'JetBrains Mono', color: 'white', fontWeight: 600 },
+                    itemStyle: { color: theme.terracotta }
+                });
+            });
+        }
+
+        var seriesFinal = d.series.map(function(s) {
+            if (s.id === 'resultante' && markPts.length) return Object.assign({}, s, { markPoint: { data: markPts } });
+            return s;
+        });
+
+        ui.axisNote.style.display = '';
+        return {
+            animation: false,
+            grid: { top: 30, right: 75, bottom: 42, left: 68 },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'line' }, valueFormatter: function(v) { return v == null ? '' : v.toFixed(3) + ' Norm | ' + fmtDB(v); } },
+            xAxis: [{ type: 'category', boundaryGap: false, data: d.timeMs, name: 'Tiempo (ms)', nameLocation: 'middle', nameGap: 26, axisLine: axisLineCfg(), axisLabel: axisLabelCfg() }],
+            yAxis: [
+                { type: 'value', name: 'Norm', position: 'left', min: -limY, max: limY, splitLine: { lineStyle: { color: theme.creamDark, type: 'dashed' } }, axisLabel: axisLabelCfg(), nameTextStyle: { color: theme.textPrimary, fontWeight: 600 } },
+                { type: 'value', name: 'dBFS', position: 'right', min: -limY, max: limY, splitLine: { show: false }, axisLabel: Object.assign({}, axisLabelCfg(), { formatter: fmtDB }), nameTextStyle: { color: theme.textPrimary, fontWeight: 600 } }
+            ],
+            series: seriesFinal.map(function(s) { return Object.assign({}, s, { yAxisIndex: 0 }); })
+        };
+    }
+
+    function buildFreqOption(d) {
+        var xMax = d.maxFreq + state.freq * 2;
+        var yMax = d.maxAmp > 0 ? d.maxAmp * 1.2 : 1.2;
+        var xMin = state.logScale ? Math.max(state.freq * 0.75, 1) : 0;
+        var bars = (state.showResult || state.showComps)
+            ? [{ id: 'barras', name: 'Magnitud', type: 'bar', barWidth: 10, itemStyle: { borderRadius: [4,4,0,0] }, data: d.freqData, yAxisIndex: 0 }]
+            : [{ id: 'dummy', type: 'bar', data: [], animation: false }];
+
+        ui.axisNote.style.display = '';
+        return {
+            animation: false,
+            grid: { top: 30, right: 75, bottom: 42, left: 68 },
+            tooltip: { trigger: 'item', formatter: function(p) { return '<div style="font-family:JetBrains Mono;font-size:11px">f = ' + p.value[0] + ' Hz<br>' + p.value[1].toFixed(3) + ' Norm | ' + fmtDB(p.value[1]) + '</div>'; } },
+            xAxis: [{ type: state.logScale ? 'log' : 'value', logBase: 2, name: state.logScale ? 'Frecuencia (Hz) - octavas' : 'Frecuencia (Hz)', nameLocation: 'middle', nameGap: 26, min: xMin, max: xMax, axisLine: axisLineCfg(), axisLabel: axisLabelCfg(), splitLine: { show: state.logScale, lineStyle: { color: theme.creamDark, type: 'dashed' } } }],
+            yAxis: [
+                { type: 'value', name: 'Norm', position: 'left', min: 0, max: yMax, splitLine: { lineStyle: { color: theme.creamDark, type: 'dashed' } }, axisLabel: axisLabelCfg(), nameTextStyle: { color: theme.textPrimary, fontWeight: 600 } },
+                { type: 'value', name: 'dBFS', position: 'right', min: 0, max: yMax, splitLine: { show: false }, axisLabel: Object.assign({}, axisLabelCfg(), { formatter: fmtDB }), nameTextStyle: { color: theme.textPrimary, fontWeight: 600 } }
+            ],
+            series: bars
+        };
+    }
+
+    function buildLissajousOption(d) {
+        var rMax = 1.3;
+        for (var i = 0; i < d.sumatoria.length; i++) {
+            var abs = Math.abs(d.sumatoria[i]);
+            if (abs * 1.15 > rMax) rMax = abs * 1.15;
+        }
+        var xyData = [];
+        for (var j = 0; j < d.sumatoria.length; j++) xyData.push([d.fundamental[j], d.sumatoria[j]]);
+
+        ui.axisNote.style.display = 'none';
+        return {
+            animation: false,
+            grid: { top: 40, right: 50, bottom: 55, left: 65 },
+            tooltip: { trigger: 'item', formatter: function(p) { return '<div style="font-family:JetBrains Mono;font-size:10px">X: ' + p.value[0].toFixed(3) + '<br>Y: ' + p.value[1].toFixed(3) + '</div>'; } },
+            xAxis: [{ type: 'value', name: 'Fundamental sin(2*pi*f*t)  [Norm]', nameLocation: 'middle', nameGap: 32, min: -1.2, max: 1.2, splitLine: { lineStyle: { color: theme.creamDark, type: 'dashed' } }, axisLine: axisLineCfg(), axisLabel: axisLabelCfg() }],
+            yAxis: [{ type: 'value', name: 'Resultante (Norm)', nameLocation: 'middle', nameGap: 52, min: -rMax, max: rMax, splitLine: { lineStyle: { color: theme.creamDark, type: 'dashed' } }, axisLine: axisLineCfg(), axisLabel: axisLabelCfg() }],
+            series: [{ id: 'lissajous', type: 'line', data: xyData, showSymbol: false, lineStyle: { width: 2, color: theme.terracottaDark, opacity: 0.85 }, animation: false }]
+        };
+    }
+
+    function buildFaseOption(d) {
+        var faseData = [];
+        iterarArmonicos(function(idx, nArm) {
+            var fHz = nArm * state.freq;
+            var deg = state.phases[idx] || 0;
+            faseData.push({ value: [fHz, deg], itemStyle: { color: palette[idx % palette.length] } });
+        });
+
+        ui.axisNote.style.display = 'none';
+        return {
+            animation: false,
+            grid: { top: 30, right: 40, bottom: 42, left: 68 },
+            tooltip: { trigger: 'item', formatter: function(p) { return '<div style="font-family:JetBrains Mono;font-size:11px">f = ' + p.value[0] + ' Hz<br>phi = ' + p.value[1] + ' °</div>'; } },
+            xAxis: [{ type: 'value', name: 'Frecuencia (Hz)', nameLocation: 'middle', nameGap: 26, min: 0, max: d.maxFreq + state.freq * 2, axisLine: axisLineCfg(), axisLabel: axisLabelCfg(), splitLine: { show: false } }],
+            yAxis: [{ type: 'value', name: 'Fase (°)', position: 'left', min: 0, max: 360, interval: 90, splitLine: { lineStyle: { color: theme.creamDark, type: 'dashed' } }, axisLabel: Object.assign({}, axisLabelCfg(), { formatter: function(v) { return v + '°'; } }), nameTextStyle: { color: theme.textPrimary, fontWeight: 600 } }],
+            series: [{ id: 'fases', name: 'Fase', type: 'bar', barWidth: 10, itemStyle: { borderRadius: [4,4,0,0] }, data: faseData }]
+        };
+    }
+
+    function renderChart(pulse) {
+        if (!chart) return;
+        var d = procesarDatos();
+        var opt;
+        if (state.view === 'time') opt = buildTimeOption(d);
+        else if (state.view === 'freq') opt = buildFreqOption(d);
+        else if (state.view === 'lissajous') opt = buildLissajousOption(d);
+        else opt = buildFaseOption(d);
+        chart.setOption(opt, { notMerge: true });
+        if (pulse) pulseChart();
+    }
+
+    function switchTab(newView) {
+        var w = ui.chartWrapper;
+        w.classList.remove('in', 'out', 'param-pulse');
+        void w.offsetWidth;
+        w.classList.add('out');
+        setTimeout(function() {
+            state.view = newView;
+            renderChart(false);
+            w.classList.remove('out');
+            void w.offsetWidth;
+            w.classList.add('in');
+            setTimeout(function() { w.classList.remove('in'); }, 300);
+        }, 240);
+    }
+
+    function buildPhaseList() {
+        ui.phaseList.innerHTML = '';
+        iterarArmonicos(function(idx, nArm) {
+            var fHz = nArm * state.freq;
+            var label = idx === 0 ? 'Fundamental' : 'Parcial/Armónico ' + (idx + 1);
+            var el = document.createElement('div');
+            el.className = 'phase-item';
+            el.innerHTML =
+                '<div class="phase-item-header">' +
+                '<span class="phase-item-name">' + label + ' - n=' + nArm + ' (' + fHz + ' Hz)</span>' +
+                '<span class="badge"><span class="badge-display" id="phLbl' + idx + '">' + (state.phases[idx] || 0) + '°</span></span>' +
+                '</div>' +
+                '<input type="range" min="0" max="360" step="5" value="' + (state.phases[idx] || 0) + '" id="phRng' + idx + '">';
+            ui.phaseList.appendChild(el);
+
+            (function(i) {
+                el.querySelector('#phRng' + i).addEventListener('input', function(e) {
+                    state.phases[i] = parseInt(e.target.value);
+                    document.getElementById('phLbl' + i).textContent = state.phases[i] + '°';
+                    renderChart(true);
+                });
+            })(idx);
+        }, state.comps);
+    }
+
+    function saveSnapshotA() {
+        var d = procesarDatos();
+        var snapData = [];
+        for (var i = 0; i < d.timeMs.length; i++) snapData.push(d.sumatoria[i]);
+        state.snapshotA = { data: snapData };
+        state.showA = true;
+        ui.chkShowA.checked = true;
+        ui.btnClearA.style.display = '';
+        ui.toggleARow.style.display = '';
+        ui.hintA.textContent = 'Curva A guardada. Modifica parametros y activa "Mostrar curva A".';
+        renderChart(true);
+    }
+
+    function clearSnapshotA() {
+        state.snapshotA = null; state.showA = false;
+        ui.chkShowA.checked = false;
+        ui.btnClearA.style.display = 'none';
+        ui.toggleARow.style.display = 'none';
+        ui.hintA.textContent = 'Guarda el estado actual como A, luego modifica parametros y compara en la vista de Tiempo.';
+        renderChart(true);
+    }
+
+    function buildPresetRows() {
+        ui.presetRows.innerHTML = '';
+        for (var i = 0; i < 3; i++) {
+            (function(idx) {
+                var row = document.createElement('div');
+                row.className = 'preset-row';
+                var filled = state.presets[idx] !== null;
+                row.innerHTML =
+                    '<span class="preset-label' + (filled ? ' filled' : '') + '" id="presetLbl' + idx + '">' + String.fromCharCode(65 + idx) + '</span>' +
+                    '<button class="btn-sm" onclick="savePreset(' + idx + ')">Guardar</button>' +
+                    '<button class="btn-sm btn-sage" onclick="loadPreset(' + idx + ')" ' + (filled ? '' : 'disabled') + ' id="presetLoad' + idx + '">Cargar</button>';
+                ui.presetRows.appendChild(row);
+            })(i);
+        }
+    }
+
+    function savePreset(idx) {
+        var snap = {
+            freq: state.freq, comps: state.comps, gainF: state.gainF, gainH: state.gainH,
+            type: state.type, cycles: state.cycles, filterType: state.filterType, filterFreq: state.filterFreq,
+            logScale: state.logScale, phases: state.phases.slice()
+        };
+        state.presets[idx] = snap;
+        buildPresetRows();
+    }
+
+    function loadPreset(idx) {
+        var p = state.presets[idx];
+        if (!p) return;
+        state.freq = p.freq; state.comps = p.comps; state.gainF = p.gainF; state.gainH = p.gainH;
+        state.type = p.type; state.cycles = p.cycles; state.filterType = p.filterType; state.filterFreq = p.filterFreq;
+        state.logScale = p.logScale; state.phases = p.phases.slice();
+        activeComps = state.comps;
+
+        syncBadge(ui.lblFreq, ui.rngFreq, 'freq', false);
+        syncBadge(ui.lblComps, ui.rngComps, 'comps', false);
+        syncBadge(ui.lblGainF, ui.rngGainF, 'gainF', true);
+        syncBadge(ui.lblGainH, ui.rngGainH, 'gainH', true);
+        syncBadge(ui.lblCycles, ui.rngCycles, 'cycles', false);
+        syncBadge(ui.lblFilterFreq, ui.rngFilterFreq, 'filterFreq', false);
+
+        ui.selType.value = state.type;
+        ui.formBox.textContent = formulas[state.type];
+        ui.chkLog.checked = state.logScale;
+        ui.selFilter.value = state.filterType;
+        ui.filterGroup.style.display = state.filterType === 'none' ? 'none' : '';
+
+        if (!document.getElementById('phaseBody').classList.contains('collapsed')) buildPhaseList();
+        switchTab(state.view);
+    }
+
+    function startBuild() {
+        if (buildTimer) return;
+        buildStep = 1;
+        activeComps = 1;
+        ui.btnBuildStart.style.display = 'none';
+        ui.btnBuildStop.style.display = '';
+        ui.buildStepDisplay.textContent = '1 / ' + state.comps;
+
+        if (state.view !== 'time') {
+            ui.tabs.forEach(function(t) { t.classList.remove('active'); });
+            document.querySelector('[data-view="time"]').classList.add('active');
+            state.view = 'time';
+        }
+        renderChart(false);
+
+        buildTimer = setInterval(function() {
+            buildStep++;
+            if (buildStep > state.comps) { stopBuild(); return; }
+            activeComps = buildStep;
+            ui.buildStepDisplay.textContent = buildStep + ' / ' + state.comps;
+            renderChart(false);
+            pulseChart();
+        }, buildSpeed);
+    }
+
+    function stopBuild() {
+        clearInterval(buildTimer);
+        buildTimer = null;
+        activeComps = state.comps;
+        ui.btnBuildStart.style.display = '';
+        ui.btnBuildStop.style.display = 'none';
+        ui.buildStepDisplay.textContent = state.comps + ' / ' + state.comps;
+        renderChart(false);
+    }
+
+    function computeAudioBuffer(ctx) {
+        var rate = ctx.sampleRate;
+        var total = Math.floor(rate * 2.5);
+        var buf = ctx.createBuffer(1, total, rate);
+        var ch  = buf.getChannelData(0);
+        var harmonics = [];
+
+        iterarArmonicos(function(idx, nArm, ao) {
+            var g = idx === 0 ? state.gainF : state.gainH;
+            var fHz = nArm * state.freq;
+            harmonics.push({ f: fHz, amp: ao * g * filterGain(fHz), phi: (state.phases[idx] || 0) * Math.PI / 180 });
+        }, state.comps);
+
+        var fade = Math.floor(rate * 0.03);
+        for (var i = 0; i < total; i++) {
+            var t = i / rate, v = 0;
+            for (var k = 0; k < harmonics.length; k++) v += harmonics[k].amp * Math.sin(2 * Math.PI * harmonics[k].f * t + harmonics[k].phi);
+            var env = i < fade ? i / fade : (i > total - fade ? (total - i) / fade : 1);
+            ch[i] = v * 0.22 * env;
+        }
+        return buf;
+    }
+
+    function playAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (audioSource) { try { audioSource.stop(); } catch(e) {} }
+        audioSource = audioCtx.createBufferSource();
+        audioSource.buffer = computeAudioBuffer(audioCtx);
+        audioSource.loop = true;
+        audioSource.connect(audioCtx.destination);
+        audioSource.start();
+        playing = true;
+        ui.btnAudio.classList.add('active-audio');
+        ui.lblAudio.textContent = 'Pausar';
+        ui.iconAudio.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    }
+
+    function stopAudio() {
+        if (audioSource) { try { audioSource.stop(); } catch(e) {} audioSource = null; }
+        playing = false;
+        ui.btnAudio.classList.remove('active-audio');
+        ui.lblAudio.textContent = 'Reproducir';
+        ui.iconAudio.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    }
+
+    function toggleAudio() { playing ? stopAudio() : playAudio(); }
+
+    function exportCSV() {
+        var d = procesarDatos();
+        var rows = ['Tiempo(ms),Resultante(Norm),Fundamental(Norm)'];
+        for (var i = 0; i < d.timeMs.length; i++) rows.push(d.timeMs[i] + ',' + d.sumatoria[i].toFixed(7) + ',' + d.fundamental[i].toFixed(7));
+        rows.push('', 'Frecuencia(Hz),Magnitud(Norm),Magnitud(dBFS)');
+        for (var k = 0; k < d.freqData.length; k++) {
+            var fd = d.freqData[k];
+            var db = fd.value[1] < 0.0001 ? '-inf' : (20 * Math.log10(fd.value[1])).toFixed(3);
+            rows.push(fd.value[0] + ',' + fd.value[1].toFixed(7) + ',' + db);
+        }
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+        a.download = 'verio_' + state.type + '_' + state.freq + 'hz_N' + state.comps + '.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function exportPNG() {
+        if (!chart) return;
+        var url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#FFFFFF' });
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'verio_' + state.view + '_' + state.type + '_' + state.freq + 'hz.png';
+        a.click();
+    }
+
+    function syncBadge(lblEl, rngEl, stateKey, isFloat) {
+        var txt = isFloat ? state[stateKey].toFixed(1) : String(state[stateKey]);
+        var display = lblEl.querySelector('.badge-display');
+        if (display) display.textContent = txt;
+        rngEl.value = state[stateKey];
+        var inp = lblEl.querySelector('input[type="number"]');
+        if (inp) inp.value = state[stateKey];
+    }
+
+    function onParamChange() {
+        if (playing) { stopAudio(); playAudio(); }
+        renderChart(true);
+    }
+
+    function setupEvents() {
+        function bind(rngEl, lblEl, stateKey, isFloat, extra) {
+            rngEl.addEventListener('input', function(e) {
+                state[stateKey] = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
+                var display = lblEl.querySelector('.badge-display');
+                if (display) display.textContent = isFloat ? state[stateKey].toFixed(1) : state[stateKey];
+                var ni = lblEl.querySelector('input[type="number"]');
+                if (ni) ni.value = state[stateKey];
+                activeComps = state.comps;
+                if (extra) extra();
+                onParamChange();
+            });
+            makeBadgeEditable(lblEl, rngEl, stateKey, isFloat, function() {
+                if (extra) extra(); onParamChange();
+            });
+        }
+
+        bind(ui.rngFreq, ui.lblFreq, 'freq', false, null);
+        bind(ui.rngGainF, ui.lblGainF, 'gainF', true, null);
+        bind(ui.rngGainH, ui.lblGainH, 'gainH', true, null);
+        bind(ui.rngCycles, ui.lblCycles, 'cycles', false, null);
+        bind(ui.rngFilterFreq, ui.lblFilterFreq, 'filterFreq', false, null);
+
+        bind(ui.rngComps, ui.lblComps, 'comps', false, function() {
+            activeComps = state.comps;
+            if (!document.getElementById('phaseBody').classList.contains('collapsed')) buildPhaseList();
+        });
+
+        ui.selType.addEventListener('change', function(e) {
+            state.type = e.target.value;
+            ui.formBox.textContent = formulas[state.type];
+            if (!document.getElementById('phaseBody').classList.contains('collapsed')) buildPhaseList();
+            onParamChange();
+        });
+
+        ui.chkResult.addEventListener('change', function(e) { state.showResult = e.target.checked; renderChart(true); });
+        ui.chkComps.addEventListener('change', function(e)  { state.showComps  = e.target.checked; renderChart(true); });
+        ui.chkGibbs.addEventListener('change', function(e)  { state.showGibbs  = e.target.checked; renderChart(true); });
+        ui.chkLog.addEventListener('change', function(e)    { state.logScale   = e.target.checked; renderChart(true); });
+        ui.chkShowA.addEventListener('change', function(e)  { state.showA      = e.target.checked; renderChart(true); });
+
+        ui.selFilter.addEventListener('change', function(e) {
+            state.filterType = e.target.value;
+            ui.filterGroup.style.display = state.filterType === 'none' ? 'none' : '';
+            onParamChange();
+        });
+
+        ui.rngBuildSpeed.addEventListener('input', function(e) {
+            buildSpeed = parseInt(e.target.value);
+            var display = ui.lblBuildSpeed.querySelector('.badge-display');
+            if (display) display.textContent = buildSpeed;
+        });
+        makeBadgeEditable(ui.lblBuildSpeed, ui.rngBuildSpeed, null, false, null);
+        ui.lblBuildSpeed.addEventListener('click', function() {});
+
+        ui.tabs.forEach(function(tab) {
+            tab.addEventListener('click', function(e) {
+                var v = e.currentTarget.dataset.view;
+                if (v === state.view) return;
+                ui.tabs.forEach(function(t) { t.classList.remove('active'); });
+                e.currentTarget.classList.add('active');
+                switchTab(v);
+            });
+        });
+    }
+
+    function resetApp() {
+        stopAudio();
+        if (buildTimer) stopBuild();
+        state = {
+            freq: 100, comps: 5, gainF: 1.0, gainH: 1.0,
+            type: 'square', cycles: 2,
+            showResult: true, showComps: true, showGibbs: true,
+            view: 'time', filterType: 'none', filterFreq: 500,
+            logScale: false, phases: new Array(30).fill(0),
+            presets: state.presets, snapshotA: null, showA: false
+        };
+        activeComps = 5;
+
+        syncBadge(ui.lblFreq, ui.rngFreq, 'freq', false);
+        syncBadge(ui.lblComps, ui.rngComps, 'comps', false);
+        syncBadge(ui.lblGainF, ui.rngGainF, 'gainF', true);
+        syncBadge(ui.lblGainH, ui.rngGainH, 'gainH', true);
+        syncBadge(ui.lblCycles, ui.rngCycles, 'cycles', false);
+        syncBadge(ui.lblFilterFreq, ui.rngFilterFreq, 'filterFreq', false);
+
+        ui.selType.value = 'square'; ui.formBox.textContent = formulas['square'];
+        ui.chkResult.checked = true; ui.chkComps.checked = true;
+        ui.chkGibbs.checked = true; ui.chkLog.checked = false;
+        ui.selFilter.value = 'none'; ui.filterGroup.style.display = 'none';
+        clearSnapshotA();
+
+        var phBody = document.getElementById('phaseBody');
+        var phHdr  = document.getElementById('phaseHeader');
+        if (!phBody.classList.contains('collapsed')) { phBody.classList.add('collapsed'); phHdr.classList.add('collapsed'); }
+
+        ui.tabs.forEach(function(t) { t.classList.remove('active'); });
+        document.querySelector('[data-view="time"]').classList.add('active');
+        switchTab('time');
+    }
+
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            var dom = document.getElementById('chartContainer');
+            if (typeof echarts !== 'undefined') {
+                chart = echarts.init(dom);
+                new ResizeObserver(function() { chart.resize(); }).observe(document.querySelector('.chart-wrapper'));
+                buildPresetRows();
+                setupEvents();
+                renderChart(false);
+            }
+        }, 80);
+    });
+</script>
+</body>
+</html>
